@@ -1,6 +1,3 @@
-# Loan-Data-Cleaning-and-EDA
-This repository contains SQL scripts for cleaning and conducting exploratory data analysis (EDA) on a loan dataset. Explore data cleaning techniques and gain insights into loan-related trends and patterns.
-
 # Loan Data Cleaning and EDA
 
 In this portfolio project, I work with three key tables, each serving a distinct purpose. The project revolves around data cleaning and exploration, ensuring data quality and suitability for further analysis.
