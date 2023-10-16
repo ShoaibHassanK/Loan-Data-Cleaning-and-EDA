@@ -1,0 +1,200 @@
+
+-- In this Portfolio Project, I will be working with three key tables, each serving a distinct purpose. 
+
+-- Data Cleaning and Exploration: Involves preparing and analyzing the data to ensure its quality and suitability for further analysis.
+
+
+
+SELECT Top 5 *
+FROM table_size_standard
+
+-- Eliminating Unnecessary Columns
+
+
+ALTER TABLE table_size_standard
+DROP COLUMN 
+            ["Size standards  in millions of dollars"],
+            [Size standards in number of employees],
+            [Footnotes];
+
+
+--Data Cleansing
+
+
+SELECT *
+FROM table_size_standard
+WHERE [NAICS Codes] =''
+
+
+-- Replacing Unwanted Characters and Updating the Table
+
+
+UPDATE table_size_standard
+SET [NAICS Industry Description] = REPLACE([NAICS Industry Description], '–', '-')
+WHERE [NAICS Codes] = ''
+
+
+-- Further Replacing
+
+
+UPDATE table_size_standard
+SET [NAICS Industry Description] = REPLACE([NAICS Industry Description], '"', '')
+WHERE [NAICS Codes] = ''
+
+
+-- Updating the table
+
+
+UPDATE Table_Size_Standard
+SET [NAICS Codes] = REPLACE([NAICS Codes],'–','-')
+
+
+UPDATE table_size_standard
+SET [NAICS Codes] = REPLACE([NAICS Codes],'"','')
+
+SELECT *
+FROM Table_Size_Standard
+
+
+-- Structuring Data Using CTE for Efficiency in Analysis
+
+WITH CTE AS (
+  SELECT
+    [NAICS Industry Description],
+    SUBSTRING([NAICS Industry Description], (CHARINDEX('-', [NAICS Industry Description]) + 1), LEN([NAICS Industry Description])) AS Industry,
+    SUBSTRING([NAICS Industry Description], 8, 2) AS Lookup_code
+  FROM table_size_standard
+  WHERE [NAICS Codes] = '' AND [NAICS Industry Description] LIKE ('Sector%')
+)
+
+SELECT
+  
+  CASE WHEN Industry LIKE ('%-%') THEN SUBSTRING(Industry,6, LEN(Industry)) 
+  ELSE Industry
+  END AS Industry_Description,
+  Lookup_code
+FROM CTE;
+
+
+-- Populating a New Table with CTE Results
+
+
+WITH CTE AS (
+  SELECT
+    [NAICS Industry Description],
+    SUBSTRING([NAICS Industry Description], (CHARINDEX('-', [NAICS Industry Description]) + 1), LEN([NAICS Industry Description])) AS Industry,
+    SUBSTRING([NAICS Industry Description], 8, 2) AS Lookup_code
+  FROM table_size_standard
+  WHERE [NAICS Codes] = '' AND [NAICS Industry Description] LIKE ('Sector%')
+)
+
+SELECT populate.*
+INTO Industry_codes
+FROM ( SELECT
+  
+  CASE WHEN Industry LIKE ('%-%') THEN SUBSTRING(Industry,6, LEN(Industry)) 
+  ELSE Industry
+  END AS Industry_Description,
+  Lookup_code
+FROM CTE ) AS populate
+
+
+-- Filling Missing Values in the Table
+
+
+SELECT *
+FROM Table_Size_Standard
+WHERE [NAICS Codes] =''
+
+
+INSERT INTO Industry_codes (Industry_Description, Lookup_code)
+VALUES 
+  ('Manufacturing', 32),
+  ('Manufacturing', 33),
+  ('Retail Trade', 45),
+  ('Transportation and Warehousing', 49);
+
+
+SELECT *
+FROM Industry_codes
+
+
+
+-- Exploring Data:
+
+SELECT *
+FROM dbo.public_150k_plus_230630
+
+
+-- 1) Summary of Loan Delivery Method (PPP for first draw; PPS for second draw)
+
+      SELECT DISTINCT(ProcessingMethod), COUNT(*) Total_Count
+	  FROM dbo.public_150k_plus_230630
+	  GROUP BY ProcessingMethod
+
+
+-- 2) Yearly Summary of Loans
+
+     SELECT 
+	        YEAR(DateApproved) AS Loan_year,
+			COUNT(LoanNumber) AS Total_loans,
+	        ROUND(SUM(InitialApprovalAmount),2) AS Approved_amount,
+			ROUND(AVG(InitialApprovalAmount),2) AS Average_loan_size
+			
+	 FROM dbo.public_150k_plus_230630
+	 GROUP BY YEAR(DateApproved)
+
+
+-- 3) Top 15 OriginatingLender by loan count in years 2020 and 2021.
+
+    SELECT TOP 15 
+          YEAR(DateApproved) AS Loan_year,
+          OriginatingLender AS Lender_name,
+	      COUNT(LoanNumber) AS Total_loans,
+	      ROUND(SUM(InitialApprovalAmount),2) AS Approved_amount,
+	      ROUND(AVG(InitialApprovalAmount),2) AS Average_loan_size
+			
+    FROM dbo.public_150k_plus_230630
+    GROUP BY YEAR(DateApproved), OriginatingLender
+    ORDER BY Total_loans DESC
+
+
+-- 4) Top Industries to take loans in the year 2020.
+
+    SELECT TOP 20
+            Ic.Industry_Description AS Industry_name,
+			COUNT(p.LoanNumber) AS Total_loans,
+            ROUND(SUM(p.InitialApprovalAmount),2) AS Approved_amount
+    FROM dbo.Industry_codes Ic
+    JOIN dbo.public_150k_plus_230630 p
+            ON Ic.Lookup_code = SUBSTRING(CAST(p.NAICSCode AS varchar), 1, 2) -- Alternatively, we can utilize the LEFT function to extract characters 
+    WHERE YEAR(p.DateApproved) = '2020'
+    GROUP BY Ic.Industry_Description
+    ORDER BY Approved_amount DESC
+
+	      
+-- 5) Total Percentage of Loan Forgiven in the year 2020 and 2021.
+
+    SELECT 
+	      YEAR(DateApproved) AS Loan_year,
+	      COUNT(LoanNumber) AS Total_loans,
+		  ROUND(SUM(CurrentApprovalAmount),2) AS Approved_amount,
+		  ROUND(SUM(ForgivenessAmount),2) AS Forgiven_amount,
+		  ROUND((SUM(ForgivenessAmount)/SUM(CurrentApprovalAmount))*100,2) AS Percentage_of_loan_forgiven
+
+    FROM dbo.public_150k_plus_230630
+	GROUP BY YEAR(DateApproved)
+
+
+-- 6) Year, Monthh with highest Loans Approved.
+	
+	 SELECT 
+	       YEAR(DateApproved) AS Loan_year,
+		   DATENAME(MONTH, DateApproved) AS Loan_month,
+		   COUNT(LoanNumber) AS Total_loans
+
+	 FROM dbo.public_150k_plus_230630
+	 GROUP BY YEAR(DateApproved),DATENAME(MONTH, DateApproved)
+	 ORDER BY Total_loans DESC
+
+
